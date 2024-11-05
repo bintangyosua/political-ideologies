@@ -1,0 +1,15 @@
+marimo
+pandas
+numpy
+
+matplotlib
+seaborn
+altair
+
+genism
+scikit-learn
+
+# Or a specific version
+# marimo>=0.9.0
+
+# Add other dependencies as needed

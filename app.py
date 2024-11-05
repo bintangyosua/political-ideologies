@@ -232,11 +232,15 @@ def __(mo):
 
 
 @app.cell(hide_code=True)
-def __(TSNE, df, embeddings_matrix, plt, sns):
+def __(TSNE, alt, df, embeddings_matrix, plt, sns):
     tsne = TSNE(n_components=2, random_state=0)
     tsne_results = tsne.fit_transform(embeddings_matrix)
     df['x'] = tsne_results[:, 0]
     df['y'] = tsne_results[:, 1]
+
+    # Brush for selection
+    brush = alt.selection_interval()
+    size = 350
 
     plt.figure(figsize=(10, 6))
     sns.scatterplot(data=df, x='x', y='y', hue='issue_type_text', palette='Set1', s=100)
@@ -245,7 +249,7 @@ def __(TSNE, df, embeddings_matrix, plt, sns):
     plt.ylabel("t-SNE Dimension 2")
     plt.legend(title='Ideology')
     plt.show()
-    return tsne, tsne_results
+    return brush, size, tsne, tsne_results
 
 
 @app.cell(hide_code=True)
@@ -255,17 +259,20 @@ def __(mo):
         ## 7. Interactive Visualizations
 
         Interactive scatter plots in Altair show ideology and issue types in 2D space. A brush selection tool allows users to explore specific points and view tooltip information.
+
+        ### Combined Scatter Plot
+
+        Combines the two scatter plots into a side-by-side visualization for direct comparison of ideologies vs. issue types.
+        Running the Code
+
+        Run the code using the marimo.App instance. This notebook can also be run as a standalone Python script:
         """
     )
     return
 
 
 @app.cell(hide_code=True)
-def __(alt, df, mo):
-    # Brush for selection
-    brush = alt.selection_interval()
-    size = 350
-
+def __(alt, brush, df, mo, size):
     points1 = alt.Chart(df, height=size, width=size).mark_point().encode(
         x='x:Q',
         y='y:Q',
@@ -283,29 +290,10 @@ def __(alt, df, mo):
     ).add_params(brush).properties(title='By Issue Types')
 
     scatter_chart2 = mo.ui.altair_chart(points2)
-    return brush, points1, points2, scatter_chart1, scatter_chart2, size
 
-
-@app.cell(hide_code=True)
-def __(mo):
-    mo.md(
-        """
-        ### Combined Scatter Plot
-
-        Combines the two scatter plots into a side-by-side visualization for direct comparison of ideologies vs. issue types.
-        Running the Code
-
-        Run the code using the marimo.App instance. This notebook can also be run as a standalone Python script:
-        """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def __(scatter_chart1, scatter_chart2):
     combined_chart = (scatter_chart1 | scatter_chart2)
     combined_chart
-    return (combined_chart,)
+    return combined_chart, points1, points2, scatter_chart1, scatter_chart2
 
 
 @app.cell(hide_code=True)
