@@ -1,12 +1,13 @@
 marimo
 pandas
 numpy
+scipy
 
 matplotlib
 seaborn
 altair
 
-genism
+gensim
 scikit-learn
 
 # Or a specific version
