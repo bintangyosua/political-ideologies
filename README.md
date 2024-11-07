@@ -6,7 +6,7 @@ colorTo: purple
 sdk: docker
 pinned: true
 license: mit
-short_description: A Political Ideologis and Issues Analysis and Classification using Bidirectional LSTM
+short_description: Analysis and Classification
 ---
 
 # Political Ideologies Analysis
