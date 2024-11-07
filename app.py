@@ -33,12 +33,31 @@ def __():
     from gensim.models import Word2Vec
     from sklearn.manifold import TSNE
 
+    import tensorflow as tf
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Embedding, Bidirectional, LSTM, Dense
+
     mo.md("""
     ## 1. Import all libraries needed
 
     The initial cells import the necessary libraries for data handling, visualization, and word embedding.
     """)
-    return TSNE, Word2Vec, alt, mo, np, pd, plt, sns
+    return (
+        Bidirectional,
+        Dense,
+        Embedding,
+        LSTM,
+        Sequential,
+        TSNE,
+        Word2Vec,
+        alt,
+        mo,
+        np,
+        pd,
+        plt,
+        sns,
+        tf,
+    )
 
 
 @app.cell(hide_code=True)
@@ -322,6 +341,64 @@ def __(mo):
         This code provides a thorough analysis pipeline, from data loading to interactive visualizations, enabling an in-depth exploration of political ideologies.
         """
     )
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""## Building Bidirection LSTM Model""")
+    return
+
+
+@app.cell
+def __():
+    max_length = 100
+    embedding_dim = 100
+    num_classes = 2
+    return embedding_dim, max_length, num_classes
+
+
+@app.cell
+def __(
+    Bidirectional,
+    Dense,
+    Embedding,
+    LSTM,
+    Sequential,
+    embedding_dim,
+    max_length,
+    num_classes,
+    word2vec_model,
+):
+    model = Sequential()
+    model.add(Embedding(input_dim=len(word2vec_model.wv.index_to_key), output_dim=embedding_dim, input_length=max_length))
+    model.add(Bidirectional(LSTM(64, return_sequences=False)))
+    model.add(Dense(num_classes, activation='softmax'))
+    return (model,)
+
+
+@app.cell
+def __(model):
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    model.summary()
+    return
+
+
+@app.cell
+def __(df, np):
+    X = np.vstack(df['embedding'].values)
+    y = df['label'].values
+    return X, y
+
+
+@app.cell
+def __(X, model, y):
+    model.fit(X, y, epochs=10, batch_size=32, validation_split=0.2)
+    return
+
+
+@app.cell
+def __():
     return
 
 
