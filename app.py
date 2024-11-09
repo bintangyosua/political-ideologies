@@ -20,7 +20,7 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(form, mo, try_predict):
     text_classified = 'Please write something'
     if (form.value):
@@ -101,7 +101,7 @@ def __():
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(nltk):
     nltk.download('punkt')
     nltk.download('stopwords')
@@ -109,7 +109,7 @@ def __(nltk):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo):
     mo.md(
         """
@@ -129,7 +129,7 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo, pd):
     df = pd.read_parquet('train.parquet')
     df_val = pd.read_parquet('val.parquet')
@@ -175,7 +175,7 @@ def __(issue_type_mapping, label_mapping):
     return issue_type_mapping_reversed, label_mapping_reversed
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(df, issue_type_mapping_reversed, label_mapping_reversed, mo):
     df['label_text'] = df['label'].replace(label_mapping_reversed)
     df['issue_type_text'] = df['issue_type'].replace(issue_type_mapping_reversed)
@@ -214,7 +214,7 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(alt, labels_grouped, mo):
     mo.ui.altair_chart(
         alt.Chart(labels_grouped).mark_bar(
@@ -228,7 +228,7 @@ def __(alt, labels_grouped, mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(alt, issue_types_grouped, mo):
     mo.ui.altair_chart(
         alt.Chart(issue_types_grouped)
@@ -261,14 +261,14 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(WordCloud, df):
     all_text = ''.join(df['statement'])
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(all_text)
     return all_text, wordcloud
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(plt, wordcloud):
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
@@ -278,14 +278,14 @@ def __(plt, wordcloud):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(WordNetLemmatizer, stopwords):
     lemmatizer = WordNetLemmatizer()
     stop_words = set(stopwords.words('english'))
     return lemmatizer, stop_words
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(lemmatizer, re, stop_words, word_tokenize):
     # Function for preprocessing text
     def preprocess_text(text):
@@ -305,7 +305,7 @@ def __(lemmatizer, re, stop_words, word_tokenize):
     return (preprocess_text,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(df, df_test, df_val, preprocess_text):
     # Terapkan fungsi preprocessing pada kolom 'statement'
     df['processed_statement'] = df['statement'].apply(preprocess_text)
@@ -321,7 +321,7 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(np):
     def get_doc_embedding(tokens, embeddings_model):
         vectors = [embeddings_model.wv[word] for word in tokens if word in embeddings_model.wv]
@@ -332,7 +332,7 @@ def __(np):
     return (get_doc_embedding,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(FastText, Word2Vec, processed_statement):
     embedding_models = {
       'fasttext': FastText(sentences=processed_statement, vector_size=100, window=3, min_count=1, seed=0),
@@ -345,15 +345,6 @@ def __(FastText, Word2Vec, processed_statement):
 def __(mo):
     mo.md(r"""### 6.1 Word Embedding using FastText and Word2Vec""")
     return
-
-
-@app.cell
-def __(df, df_test, df_val, embedding_models, get_doc_embedding):
-    for name, embedding_model in embedding_models.items():
-        df['embeddings_' + name] = df['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
-        df_val['embeddings_' + name] = df_val['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
-        df_test['embeddings_' + name] = df_test['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
-    return embedding_model, name
 
 
 @app.cell(hide_code=True)
@@ -377,7 +368,7 @@ def __(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(UMAP, alt, df, mo, np):
     def word_embedding_2d(embedding_model, embedding_model_name):
         embeddings_matrix = np.vstack(df[f'embeddings_{embedding_model_name}'].values)
@@ -414,13 +405,34 @@ def __(UMAP, alt, df, mo, np):
     return (word_embedding_2d,)
 
 
-@app.cell
-def __(embedding_models, word_embedding_2d):
+@app.cell(hide_code=True)
+def __(
+    df,
+    df_test,
+    df_val,
+    embedding_models,
+    get_doc_embedding,
+    word_embedding_2d,
+):
+    for name, embedding_model in embedding_models.items():
+        df['embeddings_' + name] = df['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
+        df_val['embeddings_' + name] = df_val['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
+        df_test['embeddings_' + name] = df_test['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
+
     fasttext_plot = word_embedding_2d(embedding_models['fasttext'], 'fasttext')
-    return (fasttext_plot,)
+    word2vec_plot = word_embedding_2d(embedding_models['word2vec'], 'word2vec')
+
+    test_embeddings_fasttext = df_test['embeddings_fasttext']
+    return (
+        embedding_model,
+        fasttext_plot,
+        name,
+        test_embeddings_fasttext,
+        word2vec_plot,
+    )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(fasttext_plot, mo):
     fasttext_table = fasttext_plot.value[['statement', 'label_text', 'issue_type_text']]
     fasttext_chart = mo.vstack([
@@ -430,13 +442,7 @@ def __(fasttext_plot, mo):
     return fasttext_chart, fasttext_table
 
 
-@app.cell
-def __(embedding_models, word_embedding_2d):
-    word2vec_plot = word_embedding_2d(embedding_models['word2vec'], 'word2vec')
-    return (word2vec_plot,)
-
-
-@app.cell
+@app.cell(hide_code=True)
 def __(fasttext_plot, mo, word2vec_plot):
     word2vec_table = fasttext_plot.value[['statement', 'label_text', 'issue_type_text']]
     word2vec_chart = mo.vstack([
@@ -446,7 +452,7 @@ def __(fasttext_plot, mo, word2vec_plot):
     return word2vec_chart, word2vec_table
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(fasttext_chart, mo, word2vec_chart):
     mo.ui.tabs({
         'FastText': fasttext_chart,
@@ -474,27 +480,44 @@ def __(mo):
 
 @app.cell(hide_code=True)
 def __(mo):
-    mo.md(r"""## Building Model""")
+    mo.md(
+        r"""
+        ## Building Model
+
+        ```python
+        clf_model = Sequential()
+        clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
+                                         activation='relu', 
+                                         # return_sequences=True, 
+                                         input_shape=(sent_length, input_dim),
+                                         kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
+        clf_model.add(tf.keras.layers.Dropout(0.5))
+        clf_model.add(Dense(2, 
+                            activation='softmax', 
+                            kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
+        ```
+        """
+    )
     return
 
 
-@app.cell
-def __(df, df_test, df_val, np):
-    X_train = np.array(df['embeddings_fasttext'].tolist())
-    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
-    y_train = df['label'].values
+@app.cell(hide_code=True)
+def __(df_test, np, test_embeddings_fasttext):
+    # X_train = np.array(df['embeddings_fasttext'].tolist())
+    # X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+    # y_train = df['label'].values
 
-    X_val = np.array(df_val['embeddings_fasttext'].tolist())
-    X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
-    y_val = df_val['label'].values
+    # X_val = np.array(df_val['embeddings_fasttext'].tolist())
+    # X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
+    # y_val = df_val['label'].values
 
-    X_test = np.array(df_test['embeddings_fasttext'].tolist())
+    X_test = np.array(test_embeddings_fasttext.tolist())
     X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
     y_test = df_test['label'].values
-    return X_test, X_train, X_val, y_test, y_train, y_val
+    return X_test, y_test
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     # all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
     # vocab_size = len(set(all_tokens))
@@ -506,7 +529,7 @@ def __():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     # clf_model = Sequential()
     # clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
@@ -524,7 +547,7 @@ def __():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     # lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
 
@@ -532,14 +555,14 @@ def __():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     # clf_model.save('models/model_8781.keras')
     # joblib.dump(model_history, 'history/history_model_8781.pkl')
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(joblib, tf):
     loaded_model = tf.keras.models.load_model('models/model_8781.keras')
     model_history_loaded = joblib.load('history/history_model_8781.pkl')
@@ -549,7 +572,7 @@ def __(joblib, tf):
     return loaded_model, model_history_loaded
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(model_history_loaded, pd):
     history_data = {
         'epoch': range(1, len(model_history_loaded.history['accuracy']) + 1),
@@ -563,7 +586,7 @@ def __(model_history_loaded, pd):
     return history_data, history_df
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(alt, history_df, mo):
     accuracy_chart = alt.Chart(history_df).transform_fold(
         ['accuracy', 'val_accuracy'],
@@ -589,34 +612,34 @@ def __(alt, history_df, mo):
     return accuracy_chart, loss_chart
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(X_test, loaded_model, np):
     y_pred = loaded_model.predict(X_test)
     y_pred = np.argmax(y_pred, axis=1)
     return (y_pred,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     from sklearn.metrics import accuracy_score, classification_report
     import joblib
     return accuracy_score, classification_report, joblib
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(accuracy_score, mo, y_pred, y_test):
     mo.md(f"Accuracy score: **{round(accuracy_score(y_test, y_pred) * 100, 2)}**%")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(classification_report, mo, y_pred, y_test):
     with mo.redirect_stdout():
         print(classification_report(y_test, y_pred))
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(embedding_models, get_doc_embedding, loaded_model, preprocess_text):
     def try_predict(text):
       tokenized = preprocess_text(text)
@@ -629,7 +652,7 @@ def __(embedding_models, get_doc_embedding, loaded_model, preprocess_text):
     return (try_predict,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __():
     def validate(value):
         if len(value.split()) < 15:
@@ -637,7 +660,7 @@ def __():
     return (validate,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(mo, validate):
     form = mo.ui.text_area(placeholder="...").form(validate=validate)
     return (form,)
