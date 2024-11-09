@@ -20,6 +20,15 @@ def __(mo):
     return
 
 
+@app.cell
+def __(form, mo, try_predict):
+    text_classified = 'Please write something'
+    if (form.value):
+        text_classified = try_predict(form.value)
+    mo.vstack([form, mo.md(f"Your Opinion Classified as: **{text_classified}**")])
+    return (text_classified,)
+
+
 @app.cell(hide_code=True)
 def __():
     import marimo as mo
@@ -122,10 +131,9 @@ def __(mo):
 
 @app.cell
 def __(mo, pd):
-    df = pd.concat(
-        [pd.read_parquet(f'{name}.parquet') for name in ['train', 'val', 'test']], 
-        axis=0,
-    )
+    df = pd.read_parquet('train.parquet')
+    df_val = pd.read_parquet('val.parquet')
+    df_test =  pd.read_parquet('test.parquet')
 
     df = df.drop('__index_level_0__', axis=1)
 
@@ -134,7 +142,7 @@ def __(mo, pd):
 
     The dataset files (`train.parquet`, `val.parquet`, and `test.parquet`) are loaded, concatenated, and cleaned to form a single DataFrame (df). Columns are mapped to readable labels for ease of understanding.
     """)
-    return (df,)
+    return df, df_test, df_val
 
 
 @app.cell(hide_code=True)
@@ -243,7 +251,13 @@ def __(alt, issue_types_grouped, mo):
 
 @app.cell(hide_code=True)
 def __(mo):
-    mo.md(r"""## Text Preprocessing""")
+    mo.md(
+        r"""
+        ## 5. Text Preprocessing
+
+        Texts preprocessed to remove any ineffective words.
+        """
+    )
     return
 
 
@@ -259,7 +273,8 @@ def __(plt, wordcloud):
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis='off'
-    plt.show()
+    plt.plot()
+    plt.gca()
     return
 
 
@@ -291,16 +306,18 @@ def __(lemmatizer, re, stop_words, word_tokenize):
 
 
 @app.cell
-def __(df, preprocess_text):
+def __(df, df_test, df_val, preprocess_text):
     # Terapkan fungsi preprocessing pada kolom 'statement'
     df['processed_statement'] = df['statement'].apply(preprocess_text)
+    df_val['processed_statement'] = df_val['statement'].apply(preprocess_text)
+    df_test['processed_statement'] = df_test['statement'].apply(preprocess_text)
     processed_statement = df['processed_statement']
     return (processed_statement,)
 
 
 @app.cell(hide_code=True)
 def __(mo):
-    mo.md(r"""## 5. Word Embeddings""")
+    mo.md(r"""## 6. Word Embeddings""")
     return
 
 
@@ -326,31 +343,35 @@ def __(FastText, Word2Vec, processed_statement):
 
 @app.cell(hide_code=True)
 def __(mo):
-    mo.md(r"""### 5.1 Word Embedding using FastText""")
+    mo.md(r"""### 6.1 Word Embedding using FastText and Word2Vec""")
     return
 
 
 @app.cell
-def __(df, embedding_models, get_doc_embedding):
+def __(df, df_test, df_val, embedding_models, get_doc_embedding):
     for name, embedding_model in embedding_models.items():
         df['embeddings_' + name] = df['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
+        df_val['embeddings_' + name] = df_val['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
+        df_test['embeddings_' + name] = df_test['processed_statement'].apply(lambda x: get_doc_embedding(x, embedding_model))
     return embedding_model, name
-
-
-@app.cell
-def __(df, np):
-    embeddings_fasttext = df['embeddings_fasttext']
-    fasttext_embeddings_matrix = np.vstack(df['embeddings_fasttext'].values)
-    return embeddings_fasttext, fasttext_embeddings_matrix
 
 
 @app.cell(hide_code=True)
 def __(mo):
     mo.md(
         """
-        ## 6. Dimensionality Reduction using UMAP
+        #### Dimensionality Reduction using UMAP
 
         Embeddings are projected into a 2D space using UMAP for visualization. The embeddings are colored by issue type, showing clusters of similar statements.
+
+        Interactive scatter plots in Altair show ideology and issue types in 2D space. A brush selection tool allows users to explore specific points and view tooltip information.
+
+        #### Combined Scatter Plot
+
+        Combines the two scatter plots into a side-by-side visualization for direct comparison of ideologies vs. issue types.
+        Running the Code
+
+        Run the code using the marimo.App instance. This notebook can also be run as a standalone Python script:
         """
     )
     return
@@ -360,7 +381,7 @@ def __(mo):
 def __(UMAP, alt, df, mo, np):
     def word_embedding_2d(embedding_model, embedding_model_name):
         embeddings_matrix = np.vstack(df[f'embeddings_{embedding_model_name}'].values)
-        
+
         umap = UMAP(n_components=2, random_state=42)
         umap_results = umap.fit_transform(embeddings_matrix)
 
@@ -376,18 +397,18 @@ def __(UMAP, alt, df, mo, np):
             color=alt.condition(brush, 'label_text', alt.value('grey')),
             tooltip=[f'{embedding_model_name}_x:Q', f'{embedding_model_name}_y:Q', 'statement:N', 'label_text:N'] 
         ).add_params(brush).properties(title='By Political Ideologies')
-        
+
         scatter_chart1 = mo.ui.altair_chart(points1)
-        
+
         points2 = alt.Chart(df, height=size, width=size).mark_point().encode(
             x=f'{embedding_model_name}_x:Q',
             y=f'{embedding_model_name}_y:Q',
             color=alt.condition(brush, 'issue_type_text', alt.value('grey')),
-            tooltip=['x:Q', 'y:Q', 'statement:N', 'issue_type:N'] 
+            tooltip=[f'{embedding_model_name}_x:Q', f'{embedding_model_name}_y:Q', 'statement:N', 'issue_type:N'] 
         ).add_params(brush).properties(title='By Issue Types')
-        
+
         scatter_chart2 = mo.ui.altair_chart(points2)
-        
+
         combined_chart = (scatter_chart1 | scatter_chart2)
         return combined_chart
     return (word_embedding_2d,)
@@ -402,29 +423,35 @@ def __(embedding_models, word_embedding_2d):
 @app.cell
 def __(fasttext_plot, mo):
     fasttext_table = fasttext_plot.value[['statement', 'label_text', 'issue_type_text']]
-    mo.vstack([
+    fasttext_chart = mo.vstack([
         fasttext_plot,
         fasttext_table
     ])
-    return (fasttext_table,)
+    return fasttext_chart, fasttext_table
 
 
-@app.cell(hide_code=True)
-def __(mo):
-    mo.md(
-        """
-        ## 7. Interactive Visualizations
+@app.cell
+def __(embedding_models, word_embedding_2d):
+    word2vec_plot = word_embedding_2d(embedding_models['word2vec'], 'word2vec')
+    return (word2vec_plot,)
 
-        Interactive scatter plots in Altair show ideology and issue types in 2D space. A brush selection tool allows users to explore specific points and view tooltip information.
 
-        ### Combined Scatter Plot
+@app.cell
+def __(fasttext_plot, mo, word2vec_plot):
+    word2vec_table = fasttext_plot.value[['statement', 'label_text', 'issue_type_text']]
+    word2vec_chart = mo.vstack([
+        word2vec_plot,
+        word2vec_table
+    ])
+    return word2vec_chart, word2vec_table
 
-        Combines the two scatter plots into a side-by-side visualization for direct comparison of ideologies vs. issue types.
-        Running the Code
 
-        Run the code using the marimo.App instance. This notebook can also be run as a standalone Python script:
-        """
-    )
+@app.cell
+def __(fasttext_chart, mo, word2vec_chart):
+    mo.ui.tabs({
+        'FastText': fasttext_chart,
+        'Word2Vec': word2vec_chart
+    })
     return
 
 
@@ -452,56 +479,70 @@ def __(mo):
 
 
 @app.cell
-def __(df, embeddings_fasttext, np, train_test_split):
-    X = np.array(embeddings_fasttext.tolist())
-    X = X.reshape((X.shape[0], 1, X.shape[1]))
-    y = df['label'].values
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
-    return X, X_test, X_train, X_val, y, y_test, y_train, y_val
+def __(df, df_test, df_val, np):
+    X_train = np.array(df['embeddings_fasttext'].tolist())
+    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+    y_train = df['label'].values
 
+    X_val = np.array(df_val['embeddings_fasttext'].tolist())
+    X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
+    y_val = df_val['label'].values
 
-@app.cell
-def __(X_train, df):
-    all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
-    vocab_size = len(set(all_tokens))
-    vocab_size
-    input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
-    sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
-
-    input_dim, sent_length
-    return all_tokens, input_dim, sent_length, vocab_size
-
-
-@app.cell
-def __(Bidirectional, Dense, LSTM, Sequential, input_dim, sent_length):
-    clf_model = Sequential()
-    clf_model.add(Bidirectional(LSTM(64, activation='relu', return_sequences=True, input_shape=(sent_length, input_dim))))  # LSTM bidirectional
-    clf_model.add(Bidirectional(LSTM(16, activation='relu')))  # LSTM bidirectional
-    clf_model.add(Dense(2, activation='softmax'))  # Output layer dengan softmax untuk klasifikasi biner
-
-    clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    clf_model.summary()
-    return (clf_model,)
-
-
-@app.cell
-def __(X_train, X_val, clf_model, y_train, y_val):
-    model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=10, batch_size=32, verbose=2)
-    return (model_history,)
+    X_test = np.array(df_test['embeddings_fasttext'].tolist())
+    X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
+    y_test = df_test['label'].values
+    return X_test, X_train, X_val, y_test, y_train, y_val
 
 
 @app.cell
 def __():
-    # clf_model.save('models/model_dump.keras')
-    # joblib.dump(model_history, 'history/history_model_dump.pkl')
+    # all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
+    # vocab_size = len(set(all_tokens))
+    # vocab_size
+    # input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
+    # sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
+
+    # input_dim, sent_length
+    return
+
+
+@app.cell
+def __():
+    # clf_model = Sequential()
+    # clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
+    #                                  activation='relu', 
+    #                                  # return_sequences=True, 
+    #                                  input_shape=(sent_length, input_dim),
+    #                                  kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
+    # clf_model.add(tf.keras.layers.Dropout(0.5))
+    # clf_model.add(Dense(2, 
+    #                     activation='softmax', 
+    #                     kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
+
+    # clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # clf_model.summary()
+    return
+
+
+@app.cell
+def __():
+    # lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
+
+    # model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=16, verbose=2, callbacks=[lr_scheduler])
+    return
+
+
+@app.cell
+def __():
+    # clf_model.save('models/model_8781.keras')
+    # joblib.dump(model_history, 'history/history_model_8781.pkl')
     return
 
 
 @app.cell
 def __(joblib, tf):
-    loaded_model = tf.keras.models.load_model('models/model_2.keras')
-    model_history_loaded = joblib.load('history/history_model_2.pkl')
+    loaded_model = tf.keras.models.load_model('models/model_8781.keras')
+    model_history_loaded = joblib.load('history/history_model_8781.pkl')
 
     # loaded_model = clf_model
     # model_history_loaded = model_history
@@ -509,31 +550,43 @@ def __(joblib, tf):
 
 
 @app.cell
-def __(model_history_loaded, plt):
-    # Plot training & validation accuracy values
-    plt.figure(figsize=(12, 6))
+def __(model_history_loaded, pd):
+    history_data = {
+        'epoch': range(1, len(model_history_loaded.history['accuracy']) + 1),
+        'accuracy': model_history_loaded.history['accuracy'],
+        'val_accuracy': model_history_loaded.history['val_accuracy'],
+        'loss': model_history_loaded.history['loss'],
+        'val_loss': model_history_loaded.history['val_loss']
+    }
 
-    # Plot accuracy
-    plt.subplot(1, 2, 1)
-    plt.plot(model_history_loaded.history['accuracy'], label='Training Accuracy')
-    plt.plot(model_history_loaded.history['val_accuracy'], label='Validation Accuracy')
-    plt.title('Training and Validation Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend(loc='lower right')
+    history_df = pd.DataFrame(history_data)
+    return history_data, history_df
 
-    # Plot loss
-    plt.subplot(1, 2, 2)
-    plt.plot(model_history_loaded.history['loss'], label='Training Loss')
-    plt.plot(model_history_loaded.history['val_loss'], label='Validation Loss')
-    plt.title('Training and Validation Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend(loc='upper right')
 
-    plt.tight_layout()
-    plt.show()
-    return
+@app.cell
+def __(alt, history_df, mo):
+    accuracy_chart = alt.Chart(history_df).transform_fold(
+        ['accuracy', 'val_accuracy'],
+        as_=['type', 'accuracy']
+    ).mark_line().encode(
+        x='epoch:Q',
+        y='accuracy:Q',
+        color='type:N',
+        tooltip=['epoch', 'accuracy']
+    ).properties(title='Training and Validation Accuracy')
+
+    loss_chart = alt.Chart(history_df).transform_fold(
+        ['loss', 'val_loss'],
+        as_=['type', 'loss']
+    ).mark_line().encode(
+        x='epoch:Q',
+        y='loss:Q',
+        color='type:N',
+        tooltip=['epoch', 'loss']
+    ).properties(title='Training and Validation Loss')
+
+    mo.hstack([accuracy_chart | loss_chart])
+    return accuracy_chart, loss_chart
 
 
 @app.cell
@@ -551,15 +604,43 @@ def __():
 
 
 @app.cell
-def __(accuracy_score, y_pred, y_test):
-    accuracy_score(y_test, y_pred)
+def __(accuracy_score, mo, y_pred, y_test):
+    mo.md(f"Accuracy score: **{round(accuracy_score(y_test, y_pred) * 100, 2)}**%")
     return
 
 
 @app.cell
-def __(classification_report, y_pred, y_test):
-    print(classification_report(y_test, y_pred))
+def __(classification_report, mo, y_pred, y_test):
+    with mo.redirect_stdout():
+        print(classification_report(y_test, y_pred))
     return
+
+
+@app.cell
+def __(embedding_models, get_doc_embedding, loaded_model, preprocess_text):
+    def try_predict(text):
+      tokenized = preprocess_text(text)
+      embedded = get_doc_embedding(tokenized, embedding_models['fasttext'])
+      embedded = embedded.reshape(1, 1, -1)
+      prediction = loaded_model.predict(embedded)
+      predicted_class = prediction.argmax(axis=-1)
+      predicted_class = "Progressive" if predicted_class == 1 else "Conservative"
+      return predicted_class
+    return (try_predict,)
+
+
+@app.cell
+def __():
+    def validate(value):
+        if len(value.split()) < 15:
+            return 'Please enter more than 15 words.'
+    return (validate,)
+
+
+@app.cell
+def __(mo, validate):
+    form = mo.ui.text_area(placeholder="...").form(validate=validate)
+    return (form,)
 
 
 if __name__ == "__main__":
