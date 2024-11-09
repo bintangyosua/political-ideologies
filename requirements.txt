@@ -6,12 +6,12 @@ pyarrow==16.1.0
 
 matplotlib==3.7.1
 seaborn==0.12.2
-altair==5.3.10
+altair==5.3.0
 
 umap-learn==0.5.7
 
 gensim==4.3.3
-scikit-learn==0.0.post1
+scikit-learn>=0.22
 tensorflow==2.16.1
 wordcloud==1.9.3
 nltk==3.8.1

@@ -102,10 +102,7 @@ def __():
 
 
 @app.cell(hide_code=True)
-def __(nltk):
-    nltk.download('punkt')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
+def __():
     return
 
 
@@ -279,7 +276,11 @@ def __(plt, wordcloud):
 
 
 @app.cell(hide_code=True)
-def __(WordNetLemmatizer, stopwords):
+def __(WordNetLemmatizer, nltk, stopwords):
+    nltk.download('punkt')
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+
     lemmatizer = WordNetLemmatizer()
     stop_words = set(stopwords.words('english'))
     return lemmatizer, stop_words
