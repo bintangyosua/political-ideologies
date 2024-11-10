@@ -31,9 +31,12 @@ def __(form, mo, try_predict):
 
 @app.cell(hide_code=True)
 def __():
+    import os
+
     import marimo as mo
     import pandas as pd
     import numpy as np
+    import random
 
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -60,6 +63,8 @@ def __():
     from tensorflow.keras.preprocessing.sequence import pad_sequences
     from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
     from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score, classification_report
+    import joblib
 
     import nltk
 
@@ -84,13 +89,18 @@ def __():
         Word2Vec,
         WordCloud,
         WordNetLemmatizer,
+        accuracy_score,
         alt,
+        classification_report,
+        joblib,
         mo,
         nltk,
         np,
+        os,
         pad_sequences,
         pd,
         plt,
+        random,
         re,
         sns,
         stopwords,
@@ -162,7 +172,7 @@ def __():
     return issue_type_mapping, label_mapping
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(issue_type_mapping, label_mapping):
     label_mapping_reversed = {v: k for k, v in label_mapping.items()}
     issue_type_mapping_reversed = {v: k for k, v in issue_type_mapping.items()}
@@ -193,7 +203,7 @@ def __(df, issue_type_mapping_reversed, label_mapping_reversed, mo):
     return issue_types_grouped, labels_grouped
 
 
-@app.cell
+@app.cell(hide_code=True)
 def __(df):
     df.iloc[:, :6].head(7)
     return
@@ -336,8 +346,8 @@ def __(np):
 @app.cell(hide_code=True)
 def __(FastText, Word2Vec, processed_statement):
     embedding_models = {
-      'fasttext': FastText(sentences=processed_statement, vector_size=100, window=3, min_count=1, seed=0),
-      'word2vec': Word2Vec(sentences=processed_statement, vector_size=100, window=3, min_count=1, seed=0)
+      'fasttext': FastText(sentences=processed_statement, vector_size=100, window=3, min_count=1, seed=0, workers=1),
+      'word2vec': Word2Vec(sentences=processed_statement, vector_size=100, window=3, min_count=1, seed=0, workers=1)
     }
     return (embedding_models,)
 
@@ -444,8 +454,8 @@ def __(fasttext_plot, mo):
 
 
 @app.cell(hide_code=True)
-def __(fasttext_plot, mo, word2vec_plot):
-    word2vec_table = fasttext_plot.value[['statement', 'label_text', 'issue_type_text']]
+def __(mo, word2vec_plot):
+    word2vec_table = word2vec_plot.value[['statement', 'label_text', 'issue_type_text']]
     word2vec_chart = mo.vstack([
         word2vec_plot,
         word2vec_table
@@ -503,73 +513,87 @@ def __(mo):
 
 
 @app.cell(hide_code=True)
-def __(df_test, np, test_embeddings_fasttext):
-    # X_train = np.array(df['embeddings_fasttext'].tolist())
-    # X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
-    # y_train = df['label'].values
+def __(df, df_test, df_val, np, test_embeddings_fasttext):
+    X_train = np.array(df['embeddings_fasttext'].tolist())
+    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+    y_train = df['label'].values
 
-    # X_val = np.array(df_val['embeddings_fasttext'].tolist())
-    # X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
-    # y_val = df_val['label'].values
+    X_val = np.array(df_val['embeddings_fasttext'].tolist())
+    X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
+    y_val = df_val['label'].values
 
     X_test = np.array(test_embeddings_fasttext.tolist())
     X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
     y_test = df_test['label'].values
-    return X_test, y_test
+    return X_test, X_train, X_val, y_test, y_train, y_val
+
+
+@app.cell(hide_code=True)
+def __(X_train, df):
+    all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
+    vocab_size = len(set(all_tokens))
+    vocab_size
+    input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
+    sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
+
+    input_dim, sent_length
+    return all_tokens, input_dim, sent_length, vocab_size
+
+
+@app.cell(hide_code=True)
+def __(
+    Bidirectional,
+    Dense,
+    Sequential,
+    input_dim,
+    np,
+    random,
+    sent_length,
+    tf,
+):
+    seed_value = 345
+    np.random.seed(seed_value)
+    random.seed(seed_value)
+    tf.random.set_seed(seed_value)
+
+    clf_model = Sequential()
+    clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
+                                     activation='relu', 
+                                     # return_sequences=True, 
+                                     input_shape=(sent_length, input_dim),
+                                     kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
+    clf_model.add(tf.keras.layers.Dropout(0.5))
+    clf_model.add(Dense(2, 
+                        activation='softmax', 
+                        kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
+
+    clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    clf_model.summary()
+    return clf_model, seed_value
+
+
+@app.cell(hide_code=True)
+def __(ReduceLROnPlateau, X_train, X_val, clf_model, y_train, y_val):
+    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
+
+    model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=16, verbose=2, callbacks=[lr_scheduler])
+    return lr_scheduler, model_history
 
 
 @app.cell(hide_code=True)
 def __():
-    # all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
-    # vocab_size = len(set(all_tokens))
-    # vocab_size
-    # input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
-    # sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
-
-    # input_dim, sent_length
+    # clf_model.save('models/model_8719.keras')
+    # joblib.dump(model_history, 'history/history_model_8719.pkl')
     return
 
 
 @app.cell(hide_code=True)
-def __():
-    # clf_model = Sequential()
-    # clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
-    #                                  activation='relu', 
-    #                                  # return_sequences=True, 
-    #                                  input_shape=(sent_length, input_dim),
-    #                                  kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
-    # clf_model.add(tf.keras.layers.Dropout(0.5))
-    # clf_model.add(Dense(2, 
-    #                     activation='softmax', 
-    #                     kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
+def __(clf_model, model_history):
+    # loaded_model = tf.keras.models.load_model('models/model_8781.keras')
+    # model_history_loaded = joblib.load('history/history_model_8781.pkl')
 
-    # clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    # clf_model.summary()
-    return
-
-
-@app.cell(hide_code=True)
-def __():
-    # lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
-
-    # model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=16, verbose=2, callbacks=[lr_scheduler])
-    return
-
-
-@app.cell(hide_code=True)
-def __():
-    # clf_model.save('models/model_8781.keras')
-    # joblib.dump(model_history, 'history/history_model_8781.pkl')
-    return
-
-
-@app.cell(hide_code=True)
-def __(joblib, tf):
-    loaded_model = tf.keras.models.load_model('models/model_8781.keras')
-    model_history_loaded = joblib.load('history/history_model_8781.pkl')
-
-    # loaded_model = clf_model
-    # model_history_loaded = model_history
+    loaded_model = clf_model
+    model_history_loaded = model_history
     return loaded_model, model_history_loaded
 
 
@@ -618,13 +642,6 @@ def __(X_test, loaded_model, np):
     y_pred = loaded_model.predict(X_test)
     y_pred = np.argmax(y_pred, axis=1)
     return (y_pred,)
-
-
-@app.cell(hide_code=True)
-def __():
-    from sklearn.metrics import accuracy_score, classification_report
-    import joblib
-    return accuracy_score, classification_report, joblib
 
 
 @app.cell(hide_code=True)
