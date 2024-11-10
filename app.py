@@ -573,19 +573,19 @@ def __():
 
 @app.cell(hide_code=True)
 def __():
-    # clf_model.save('models/model_8719.keras')
-    # joblib.dump(model_history, 'history/history_model_8719.pkl')
+    # clf_model.save('models/model_8812.keras')
+    # joblib.dump(model_history, 'history/history_model_8812.pkl')
     return
 
 
 @app.cell(hide_code=True)
-def __(clf_model, model_history):
-    # loaded_model = tf.keras.models.load_model('models/model_8781.keras')
-    # model_history_loaded = joblib.load('history/history_model_8781.pkl')
+def __():
+    # loaded_model = tf.keras.models.load_model('models/model_8812.keras')
+    # model_history_loaded = joblib.load('history/history_model_8812.pkl')
 
-    loaded_model = clf_model
-    model_history_loaded = model_history
-    return loaded_model, model_history_loaded
+    # loaded_model = clf_model
+    # model_history_loaded = model_history
+    return
 
 
 @app.cell(hide_code=True)
