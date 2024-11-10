@@ -513,71 +513,62 @@ def __(mo):
 
 
 @app.cell(hide_code=True)
-def __(df, df_test, df_val, np, test_embeddings_fasttext):
-    X_train = np.array(df['embeddings_fasttext'].tolist())
-    X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
-    y_train = df['label'].values
+def __(df_test, np, test_embeddings_fasttext):
+    # X_train = np.array(df['embeddings_fasttext'].tolist())
+    # X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+    # y_train = df['label'].values
 
-    X_val = np.array(df_val['embeddings_fasttext'].tolist())
-    X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
-    y_val = df_val['label'].values
+    # X_val = np.array(df_val['embeddings_fasttext'].tolist())
+    # X_val = X_val.reshape((X_val.shape[0], 1, X_val.shape[1]))
+    # y_val = df_val['label'].values
 
     X_test = np.array(test_embeddings_fasttext.tolist())
     X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
     y_test = df_test['label'].values
-    return X_test, X_train, X_val, y_test, y_train, y_val
+    return X_test, y_test
 
 
 @app.cell(hide_code=True)
-def __(X_train, df):
-    all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
-    vocab_size = len(set(all_tokens))
-    vocab_size
-    input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
-    sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
+def __():
+    # all_tokens = [token for tokens in df['processed_statement'] for token in tokens]
+    # vocab_size = len(set(all_tokens))
+    # vocab_size
+    # input_dim = X_train.shape[1]  # Dimensi dari embedding yang digunakan (misalnya 50 atau 100)
+    # sent_length = X_train.shape[1]  # Ukuran dimensi per embedding
 
-    input_dim, sent_length
-    return all_tokens, input_dim, sent_length, vocab_size
-
-
-@app.cell(hide_code=True)
-def __(
-    Bidirectional,
-    Dense,
-    Sequential,
-    input_dim,
-    np,
-    random,
-    sent_length,
-    tf,
-):
-    seed_value = 345
-    np.random.seed(seed_value)
-    random.seed(seed_value)
-    tf.random.set_seed(seed_value)
-
-    clf_model = Sequential()
-    clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
-                                     activation='relu', 
-                                     # return_sequences=True, 
-                                     input_shape=(sent_length, input_dim),
-                                     kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
-    clf_model.add(tf.keras.layers.Dropout(0.5))
-    clf_model.add(Dense(2, 
-                        activation='softmax', 
-                        kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
-
-    clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    clf_model.summary()
-    return clf_model, seed_value
+    # input_dim, sent_length
+    return
 
 
 @app.cell(hide_code=True)
-def __(ReduceLROnPlateau, X_train, X_val, clf_model, y_train, y_val):
-    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
+def __():
+    # seed_value = 345
+    # np.random.seed(seed_value)
+    # random.seed(seed_value)
+    # tf.random.set_seed(seed_value)
 
-    model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=16, verbose=2, callbacks=[lr_scheduler])
-    return lr_scheduler, model_history
+    # clf_model = Sequential()
+    # clf_model.add(Bidirectional(tf.keras.layers.GRU(64, 
+    #                                  activation='relu', 
+    #                                  # return_sequences=True, 
+    #                                  input_shape=(sent_length, input_dim),
+    #                                  kernel_regularizer=tf.keras.regularizers.l2(0.001))))  # L2 regularization
+    # clf_model.add(tf.keras.layers.Dropout(0.5))
+    # clf_model.add(Dense(2, 
+    #                     activation='softmax', 
+    #                     kernel_regularizer=tf.keras.regularizers.l2(0.001)))  # L2 regularization in the Dense layer
+
+    # clf_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # clf_model.summary()
+    return
+
+
+@app.cell(hide_code=True)
+def __():
+    # lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10)
+
+    # model_history = clf_model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100, batch_size=16, verbose=2, callbacks=[lr_scheduler])
+    return
 
 
 @app.cell(hide_code=True)
